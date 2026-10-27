@@ -1,0 +1,34 @@
+# ============================================================
+#  render.yaml — Blueprint สำหรับ deploy บอทบน Render (1-คลิก)
+#  ใช้ได้ 2 วิธี:
+#   A) push ไฟล์ทั้งหมดลง GitHub repo แล้วใน Render เลือก
+#      New → Blueprint → เลือก repo นี้ → มันอ่านไฟล์นี้ให้อัตโนมัติ
+#   B) หรือ New → Web Service ธรรมดา แล้วกรอก env เองก็ได้
+#
+#  *** ค่าที่เป็น SECRET ต้องเอาไปกรอกในหน้า Environment ของ Render
+#  (อย่า hardcode token ในไฟล์นี้เด็ดขาด) ***
+# ============================================================
+services:
+  - type: web
+    name: vhagar-approve-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node approve-bot.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # ↓↓↓ ตัวเหล่านี้ให้ใส่ค่าจริงในหน้า Render (Secret) อย่าพิมพ์ใน GitHub ↓↓↓
+      - key: DISCORD_TOKEN
+        sync: false      # จะให้กรอกตอน deploy
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: ADMIN_USER_ID
+        sync: false
+      - key: GITHUB_REPO
+        value: sixdayth/vhagarbot-licenses
+      - key: GITHUB_FILE
+        value: licenses.json
+      - key: GITHUB_BRANCH
+        value: main

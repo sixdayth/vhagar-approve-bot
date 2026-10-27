@@ -1,0 +1,12 @@
+{
+  "name": "vhagar-approve-bot",
+  "version": "1.0.0",
+  "description": "Discord bot อนุมัติ Machine Code ของ VhagarBot → เขียนลง licenses.json บน GitHub อัตโนมัติ",
+  "main": "approve-bot.js",
+  "type": "commonjs",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node approve-bot.js" },
+  "dependencies": {
+    "discord.js": "^14.15.3"
+  }
+}
