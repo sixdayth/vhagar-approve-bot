@@ -267,8 +267,19 @@ function isAllowed(user) {
 }
 
 async function start() {
-  if (!CFG.discordToken) { console.error('ยังไม่ได้ใส่ DISCORD_TOKEN'); process.exit(1); }
-  if (!CFG.ghToken) { console.error('ยังไม่ได้ใส่ GITHUB_TOKEN'); process.exit(1); }
+  process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e && e.stack ? e.stack : e));
+  process.on('uncaughtException', (e) => console.error('[uncaughtException]', e && e.stack ? e.stack : e));
+
+  if (!CFG.discordToken) { console.error('[boot] DISCORD_TOKEN ว่างเปล่า'); process.exit(1); }
+  if (!CFG.ghToken) { console.error('[boot] GITHUB_TOKEN ว่างเปล่า'); process.exit(1); }
+
+  // --- log วินิจฉัยตอนบูต (ASCII ล้วน ๆ กัน log ตกหล่น) ---
+  const dt = CFG.discordToken;
+  console.log('[boot] node=' + process.version +
+    ' DISCORD_TOKEN len=' + dt.length + ' head=' + dt.slice(0, 4) + '...' + dt.slice(-3) +
+    ' GITHUB_TOKEN len=' + CFG.ghToken.length +
+    ' ADMIN=' + (CFG.adminId || '(none)') +
+    ' repo=' + CFG.ghRepo);
 
   // HTTP server เล็ก ๆ ให้ Render มองว่าบริการนี้ "เป็นเว็บ" + UptimeRobot ปลุกได้
   const PORT = process.env.PORT || 8080;
@@ -309,8 +320,17 @@ async function start() {
     }
   });
 
-  client.on(Events.Error, (e) => console.error('[discord error]', e));
+  client.on(Events.Error, (e) => console.error('[discord error]', e && e.stack ? e.stack : e));
+  client.on(Events.ShardDisconnect, (e, code) => console.error('[shard disconnect] code=' + code + ' reason=' + (e && e.reason)));
+  client.on(Events.ShardError, (e) => console.error('[shard error]', e && e.message ? e.message : e));
+  console.log('[boot] กำลัง login ไป Discord...');
   await client.login(CFG.discordToken);
+  console.log('[boot] login() ส่ง token สำเร็จ กำลังรอ READY...');
+
+  // ถ้า 20 วิแล้วยังไม่ READY = มีปัญหาที่ gateway (token/intent/เน็ต)
+  setTimeout(() => {
+    if (!client.isReady()) console.error('[watchdog] ผ่าน 20 วิ แล้วยังไม่ READY — บอทต่อ Discord ไม่ติด');
+  }, 20000);
 
   // ปิดบอทแบบนุ่มนวลเมื่อ Render ส่ง SIGTERM (ตอน redeploy)
   const bye = () => { try { client.destroy(); } catch (e) {} process.exit(0); };
