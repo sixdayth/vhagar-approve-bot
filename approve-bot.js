@@ -289,26 +289,6 @@ async function start() {
     res.end(JSON.stringify(ok));
   }).listen(PORT, '0.0.0.0', () => console.log('[keepalive] HTTP server on port ' + PORT));
 
-  // --- ทดสอบ REST ไป Discord ด้วย token ก่อน (ชี้เป้า token/เน็ต/ws) ---
-  console.log('[boot] ทดสอบ REST /users/@me ...');
-  try {
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 12000);
-    const r = await fetch('https://discord.com/api/v10/users/@me', {
-      headers: { Authorization: 'Bot ' + CFG.discordToken }, signal: ctrl.signal,
-    });
-    clearTimeout(to);
-    console.log('[boot] REST status=' + r.status);
-    if (r.ok) {
-      const j = await r.json();
-      console.log('[boot] token OK — บอทชื่อ: ' + (j.username || '?') + ' id=' + (j.id || '?'));
-    } else {
-      console.error('[boot] token ถูกรับปฏิเสธ (HTTP ' + r.status + ') — DISCORD_TOKEN ผิด/หมดอายุ');
-    }
-  } catch (e) {
-    console.error('[boot] REST ล้มเหลว/timeout: ' + (e && e.message ? e.message : e) + ' — เน็ตจาก Render ไป Discord มีปัญหา');
-  }
-
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
   client.once(Events.ClientReady, async (c) => {
@@ -343,17 +323,11 @@ async function start() {
   client.on(Events.Error, (e) => console.error('[discord error]', e && e.stack ? e.stack : e));
   client.on(Events.ShardDisconnect, (e, code) => console.error('[shard disconnect] code=' + code + ' reason=' + (e && e.reason)));
   client.on(Events.ShardError, (e) => console.error('[shard error]', e && e.message ? e.message : e));
-  client.on(Events.ShardReady, (id) => console.log('[shard ready] id=' + id));
+  client.on(Events.ShardReady, (id) => console.log('[shard ready] id=' + id + ' (ต่อ gateway ติดแล้ว)'));
   console.log('[boot] กำลัง login ไป Discord...');
-  try {
-    await Promise.race([
-      client.login(CFG.discordToken),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('login() ไม่ resolve ภายใน 15 วิ (gateway ws ค้าง)')), 15000)),
-    ]);
-    console.log('[boot] login() ส่ง token สำเร็จ กำลังรอ READY...');
-  } catch (e) {
-    console.error('[boot] login ล้มเหลว: ' + (e && e.message ? e.message : e));
-  }
+  client.login(CFG.discordToken)
+    .then(() => console.log('[boot] login() ส่ง token สำเร็จ กำลังรอ READY...'))
+    .catch((e) => console.error('[boot] login ล้มเหลว: ' + (e && e.message ? e.message : e)));
 
   // ปิดบอทแบบนุ่มนวลเมื่อ Render ส่ง SIGTERM (ตอน redeploy)
   const bye = () => { try { client.destroy(); } catch (e) {} process.exit(0); };
