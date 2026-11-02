@@ -21,7 +21,7 @@
  *    GITHUB_REPO     = "sixdayth/vhagarbot-licenses"  (เจ้าของ/ชื่อrepo)
  *    GITHUB_FILE     = "licenses.json"                 (พาธไฟล์ใน repo)
  *    GITHUB_BRANCH   = "main"                          (branches อื่นก็ใส่ได้)
- *    ADMIN_USER_ID   = (แนะนำ) Discord User ID ของคุณ — ใส่แล้วจะมีแค่คุณที่ใช้คำสั่งได้
+ *    ADMIN_USER_ID   = (แนะนำ) Discord User ID ที่ใช้คำสั่งได้ — หลายคนคั่นด้วยจุลภาค เช่น "111,222"
  *    PORT            = Render ใส่ให้อัตโนมัติ (ไว้เปิด HTTP ปลุกบอทกันหลับ)
  *
  *  หมายเหตุ intents: ต้องเปิด "Message Content Intent" ใน Discord Developer Portal
@@ -53,6 +53,7 @@ const CFG = {
   ghFile: process.env.GITHUB_FILE || 'licenses.json',
   ghBranch: process.env.GITHUB_BRANCH || 'main',
   adminId: process.env.ADMIN_USER_ID || '',
+  allowedChannel: process.env.ALLOWED_CHANNEL_ID || '',
   prefix: process.env.PREFIX || '!',
 };
 
@@ -263,7 +264,9 @@ let TAG = 'VhagarBot Approve';
 
 function isAllowed(user) {
   if (!CFG.adminId) return true; // ไม่ได้ตั้ง → ใครในห้องที่ bot เห็นก็ใช้ได้
-  return user && user.id === CFG.adminId;
+  // ใส่ได้หลายคน คั่นด้วยจุลภาค (เช่น ของเรา + เพื่อนที่ช่วยอนุมัติ)
+  const ids = CFG.adminId.split(',').map((s) => s.trim()).filter(Boolean);
+  return !!(user && ids.includes(user.id));
 }
 
 async function start() {
@@ -300,6 +303,7 @@ async function start() {
   // คำสั่งแบบพิมพ์ข้อความปกติ (!approve ...)
   client.on(Events.MessageCreate, async (msg) => {
     if (msg.author.bot) return;
+    if (CFG.allowedChannel && msg.channel.id !== CFG.allowedChannel) return; // นอกห้องที่กำหนด = ทำเป็นมองไม่เห็น
     const t = msg.content || '';
     if (!t.startsWith(PREFIX)) return;
     if (!isAllowed(msg.author)) return msg.reply('🔒 เฉพาะเจ้าของเท่านั้นที่ใช้คำสั่งนี้ได้');
@@ -310,6 +314,9 @@ async function start() {
   // คำสั่งแบบ slash (/approve ...)
   client.on(Events.InteractionCreate, async (it) => {
     if (!it.isChatInputCommand()) return;
+    if (CFG.allowedChannel && it.channelId !== CFG.allowedChannel) {
+      return it.reply({ content: '🚫 ใช้คำสั่งนี้ได้เฉพาะในห้องที่กำหนดเท่านั้น', ephemeral: true });
+    }
     if (!isAllowed(it.user)) return it.reply({ content: '🔒 เฉพาะเจ้าของเท่านั้น', ephemeral: true });
     let fake = '/' + it.commandName;
     for (const o of (it.options.data || [])) fake += ' ' + o.value;
